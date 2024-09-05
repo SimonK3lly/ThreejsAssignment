@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Three.js Assignment</title>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameOver"
+        style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 40px;">
+        GAME OVER</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.126.1/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/TGALoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <script type="module">
+
+
+        // Create the scene
+        const scene = new THREE.Scene();
+
+        // Setup camera with a larger clipping plane
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000); // Extended far clipping plane to 3000
+        camera.position.set(-10, -2, 27);
+        // Create directional light
+        const headlamp = new THREE.DirectionalLight(0xffffff, 100);
+        headlamp.position.set(0, 0, 1); // Position light in front of the camera
+
+        // Add the light to the camera
+        camera.add(headlamp);
+
+        // renderer
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Directional light
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(0.5, -0.2, -0.5);
+        scene.add(light);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // soft white light
+        scene.add(ambientLight);
+
+
+        // Texture loader
+        const loader = new THREE.TextureLoader();
+
+
+
+        // Scale Everything group
+        const scaleEverything = new THREE.Group();
+        scaleEverything.scale.set(15, 15, 15);
+
+        // Ground
+        const groundTexture = loader.load('textures/googlemap.png'); // Load ground texture
+        const groundMaterial = new THREE.MeshBasicMaterial({ map: groundTexture });
+        const groundGeometry = new THREE.PlaneGeometry(12, 10);
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2; // Rotate to lay flat
+        ground.position.set(0, -0.35, 2.2)
+        scaleEverything.add(ground);
+
+
+
+        // Sky
+        const skyGeometry = new THREE.SphereGeometry(100, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide });
+        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scaleEverything.add(sky);
+
+
+
+
+
+        // Main Structures Group
+        const mainStructures = new THREE.Group();
+
+
+
+
+        // group for the entire house
+        const houseGroup = new THREE.Group();
+
+        // Body material with texture
+        const brickTexture = loader.load('textures/brickTexture.jpeg');
+        const bodyMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
+
+        // Roof material with texture
+        const roofTexture = loader.load('textures/roofTexture.jpeg');
+        const roofMaterial = new THREE.MeshBasicMaterial({ map: roofTexture });
+
+        const concreteTexture = loader.load('textures/concrete.jpeg');
+
+        const pebbleTexture = loader.load('textures/pebbledash.png');
+        const body2Material = new THREE.MeshBasicMaterial({ map: pebbleTexture });
+
+
+
+
+        // Main Roof using BufferGeometry
+        const roofGeometry = new THREE.BufferGeometry();
+        const vertices = new Float32Array([
+            0, 0, -0.2,   // 0
+            0, 0, -1,    // 1
+            0.4, 0.5, -0.6, // 2
+            1.4, 0, -0.2,   // 3
+            1.4, 0, -1,    // 4
+            1, 0.5, -0.6    // 5
+        ]);
+        roofGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        // Manually define the faces (triangles) of the geometry
+        const faces = new Uint16Array([
+            0, 2, 1,
+            3, 4, 5,
+            0, 3, 5,
+            0, 5, 2,
+            2, 5, 4,
+            1, 2, 4,
+            0, 4, 3,
+            0, 1, 4,
+        ]);
+        // Use setIndex to define which vertices make up the faces
+        roofGeometry.setIndex(new THREE.BufferAttribute(faces, 1));
+
+        // create UVs for mapping
+        const uvsRoof = new Float32Array([
+            0.0, 0.0, // vertex 0
+            0.0, 1.0, // vertex 1
+            0.25, 0.5, // vertex 2 (top of the pyramid)
+            1.0, 0.0, // vertex 3
+            1.0, 1.0, // vertex 4
+            0.65, 0.5, // vertex 5 (top of the pyramid)
+        ]);
+
+        //  UV mapping
+        roofGeometry.setAttribute('uv', new THREE.BufferAttribute(uvsRoof, 2));
+
+        const mainRoof = new THREE.Mesh(roofGeometry, roofMaterial);
+        mainRoof.position.set(-0.3, 0.4, 0.5);
+        houseGroup.add(mainRoof);
+
+
+
+
+
+        // Secondary Roof using BufferGeometry
+        const roof2Geometry = new THREE.BufferGeometry();
+
+        const vertices2 = new Float32Array([
+            0, 0, 0,   // 0
+            0.6, 0, 0,    // 1
+            0.3, 0.3, 0, // 2
+            0, 0, 0.6,   // 3
+            0.6, 0, 0.6,    // 4
+            0.3, 0.3, 0.4    // 5
+        ]);
+        // Define vertex positions in the geometry
+        roof2Geometry.setAttribute('position', new THREE.BufferAttribute(vertices2, 3));
+        // reuse faces for setIndex
+        roof2Geometry.setIndex(new THREE.BufferAttribute(faces, 1));
+        // Add UV mapping to the geometry
+        roof2Geometry.setAttribute('uv', new THREE.BufferAttribute(uvsRoof, 2));
+
+        const secondaryRoof = new THREE.Mesh(roof2Geometry, roofMaterial);
+        secondaryRoof.position.set(-0.3, 0.4, 0);
+        houseGroup.add(secondaryRoof);
+
+
+
+
+
+
+
+
+
+        // houseBody group
+        const houseBody = new THREE.Group();
+
+
+
+        // Main Body
+        const mainBodyGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.9);
+        const mainBody = new THREE.Mesh(mainBodyGeometry, bodyMaterial);
+        mainBody.position.set(0, 0, 0.05);
+        houseBody.add(mainBody);
+
+
+
+        // Second Body
+        const secondBody1Geometry = new THREE.BoxGeometry(0.8, 0.5, 0.6);
+        const secondBody1 = new THREE.Mesh(secondBody1Geometry, bodyMaterial);
+        secondBody1.position.set(0.7, -0.15, -0.1);
+        houseBody.add(secondBody1);
+        const secondBody2Geometry = new THREE.BoxGeometry(0.8, 0.3, 0.6);
+        const secondBody2 = new THREE.Mesh(secondBody2Geometry, body2Material);
+        secondBody2.position.set(0.7, 0.25, -0.1);
+        houseBody.add(secondBody2);
+
+
+        houseGroup.add(houseBody);
+
+
+        // Front Door Group
+        const frontDoorGroup = new THREE.Group();
+
+        // Door Step Platform
+        const doorPlatformGeometry = new THREE.BoxGeometry(0.3, 0.05, 0.2);
+        const doorPlatformMaterial = new THREE.MeshBasicMaterial({ map: loader.load('textures/concrete.jpeg') });
+        const doorPlatform = new THREE.Mesh(doorPlatformGeometry, doorPlatformMaterial);
+        doorPlatform.position.set(0.45, -0.325, 0.3);
+        frontDoorGroup.add(doorPlatform);
+
+        // Side Path
+        const sidePathGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.15);
+        const sidePathMaterial = new THREE.MeshBasicMaterial({ map: loader.load('textures/concrete.jpeg') });
+        const sidePath = new THREE.Mesh(sidePathGeometry, sidePathMaterial);
+        sidePath.position.set(0.85, -0.37, 0.25);
+        frontDoorGroup.add(sidePath);
+
+        // Front Door
+        const doorGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.01);
+        const doorMaterial = new THREE.MeshBasicMaterial({ map: loader.load('textures/IMG_1054.png') });
+        const door = new THREE.Mesh(doorGeometry, doorMaterial);
+        door.position.set(0.45, -0.15, 0.2);
+        frontDoorGroup.add(door);
+
+        houseGroup.add(frontDoorGroup);
+
+
+
+
+
+        // Window function for reuse
+        function createWindow(x, y, z, textureUrl, rotation) {
+            const windowGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.01);
+            const windowMaterial = new THREE.MeshBasicMaterial({ map: loader.load(textureUrl) });
+            const windowMesh = new THREE.Mesh(windowGeometry, windowMaterial);
+            windowMesh.position.set(x, y, z);
+            windowMesh.rotation.y = rotation * (Math.PI / 180);
+            houseGroup.add(windowMesh);
+        }
+
+        // Create windows
+        createWindow(0.85, -0.1, 0.2, 'textures/window.png', 0);
+        createWindow(0.85, 0.25, 0.2, 'textures/window.png', 0);
+        createWindow(0, -0.1, 0.5, 'textures/window.png', 0);
+        createWindow(0, 0.25, 0.5, 'textures/window.png', 0);
+        createWindow(-0.3, 0.25, 0, 'textures/windowmini.png', 90);
+        createWindow(-0.3, -0.1, 0, 'textures/windowmini.png', 90);
+
+
+
+
+        mainStructures.add(houseGroup);
+
+
+
+
+
+
+
+        // Side Wall Group
+        const sideWallGroup = new THREE.Group();
+
+
+        // Wall
+        const wallMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
+        const wallGeometry = new THREE.BoxGeometry(0.6, 0.3, 0.06);
+        const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+        wall.position.set(-0.8, -0.25, 0.2);
+        sideWallGroup.add(wall);
+
+
+
+        // Pillar function
+        function addPillar(x, y, z) {
+
+            const pillarGroup = new THREE.Group();
+            pillarGroup.position.set(x, y, z);
+
+            // Pillar Top
+            const pillarTopMaterial = new THREE.MeshBasicMaterial({ map: concreteTexture });
+            const pillarTopGeometry = new THREE.ConeGeometry(0.075, 0.05, 4);
+            // Create the pyramid mesh
+            const pillarTop = new THREE.Mesh(pillarTopGeometry, pillarTopMaterial);
+            // Set the position of the pyramid
+            pillarTop.position.set(-0.5, -0.05, 0.2);
+            pillarTop.rotation.y = 45 * (Math.PI / 180);
+            pillarGroup.add(pillarTop);
+
+
+            // MainPillar
+            const pillarMainGeometry = new THREE.BoxGeometry(0.1, 0.35, 0.1);
+            const uvs = pillarMainGeometry.attributes.uv.array;
+            // Texture Mapping
+            for (let i = 0; i < uvs.length; i += 2) {
+                uvs[i] *= 0.1; // Scale U coordinate
+                uvs[i + 1] = 1 * (1 - uvs[i + 1]); // Scale and flip V coordinate
+            }
+            pillarMainGeometry.attributes.uv.needsUpdate = true;
+            const pillarMainMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
+            const pillarMain = new THREE.Mesh(pillarMainGeometry, pillarMainMaterial);
+            pillarMain.position.set(-0.5, -0.25, 0.2);
+            pillarGroup.add(pillarMain);
+
+            sideWallGroup.add(pillarGroup);
+        }
+
+        addPillar(0.02, 0, 0); // Side gate pillar
+        addPillar(0.1, 0, 1.6); // Front Right pillar
+        addPillar(-0.38, 0, 1.6); // Front Left pillar
+
+
+        // Side Gate
+        const gateTexture = loader.load('textures/darkGate.jpeg');
+        const gateMaterial = new THREE.MeshBasicMaterial({ map: gateTexture });
+        const gateGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.02);
+        const gate = new THREE.Mesh(gateGeometry, gateMaterial);
+        gate.position.set(-0.4, -0.25, 0.2);
+        sideWallGroup.add(gate);
+
+
+
+        mainStructures.add(sideWallGroup);
+
+
+        // Hedge Function
+        function addHedge(x, y, z, scaleX, scaleY, scaleZ, rotationY) {
+
+            const objLoader = new THREE.OBJLoader();
+
+            // Load the OBJ file
+            objLoader.load('textures/10449_Rectangular_Box_Hedge_v1_iterations-2.obj', function (obj) {
+                // Log to ensure the hedge is loaded
+                console.log('Hedge loaded', obj);
+
+                // Load the texture
+                const textureLoader = new THREE.TextureLoader();
+                const hedgeTexture = textureLoader.load('textures/hedge.jpeg');
+
+                // Apply texture to all child meshes in the loaded object
+                obj.traverse(function (child) {
+                    if (child instanceof THREE.Mesh) {
+                        child.material.map = hedgeTexture;
+                    }
+                });
+
+                // Set the position, scale, and rotation of the hedge
+                obj.position.set(x, y + 0.2, z);
+                obj.scale.set(scaleX * 0.5, scaleY, scaleZ * 0.2);
+                obj.rotation.y = rotationY;
+
+                // Add the hedge object to the main structures group
+                mainStructures.add(obj);
+            });
+        }
+
+
+        addHedge(-1.25, -0.4, 0.8, 0.018, 0.005, 0.005, Math.PI / 2); //Left
+        addHedge(1.2, -0.4, 0.8, 0.018, 0.005, 0.005, Math.PI / 2); //Right
+        addHedge(-1.1, -0.4, 1.7, 0.003, 0.005, 0.005, 0); //Front Short
+        addHedge(0.5, -0.4, 1.7, 0.015, 0.005, 0.005, 0); //Fron Long
+
+
+
+
+
+
+        // Add MainStructures group to the ScaleEverything group
+        scaleEverything.add(mainStructures);
+
+        // Add ScaleEverything group to the scene
+        scene.add(scaleEverything);
+
+
+
+
+
+
+
+
+
+        // Function to create a simple "V" shape bird
+        function createBird() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = new Float32Array([
+                -0.5, 0, 0,  // Left wing
+                0.5, 0, 0,  // Right wing
+                0, 0.5, 0  // Bird's head
+            ]);
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            const material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+            const bird = new THREE.Mesh(geometry, material);
+
+            // Set random position for bird
+            bird.position.set(
+                Math.random() * 400 - 200, // x
+                Math.random() * 100,  // y 
+                Math.random() * 400 - 200  // z
+            );
+
+            return bird;
+        }
+
+        // Function to animate birds
+        function animateBirds(birds) {
+            birds.forEach(bird => {
+                // Move each bird along the x-axis
+                bird.position.x += 0.1;
+                // Reset bird's position when it goes too far
+                if (bird.position.x > 200) {
+                    bird.position.x = -200;
+                }
+            });
+        }
+
+        // CGroup to hold all birds
+        const birdsGroup = new THREE.Group();
+        const birdCount = 10; // Number of birds
+
+        // Create birds and add to the group
+        for (let i = 0; i < birdCount; i++) {
+            const bird = createBird();
+            birdsGroup.add(bird);
+        }
+
+        // Add birds group to the scene
+        scene.add(birdsGroup);
+
+
+
+
+
+
+
+
+
+        // Create a raycaster and a mouse vector to store the click position
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Function to handle onclick event
+        function onClick(event) {
+            // Calculate mouse position in normalised device coordinates
+            // (-1 to +1) for both components
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Update the picking ray with the camera and mouse position
+            raycaster.setFromCamera(mouse, camera);
+
+            // Calculate objects intersecting the picking ray.
+            const intersects = raycaster.intersectObjects([gate], true);
+
+            // Check if gate is clicked
+            if (intersects.length > 0) {
+                // Animate gate opening
+                animateGate();
+
+                // After gate opens, make the birds flock
+                setTimeout(() => {
+                    animateBirdsToFlockLocation();
+                }, 1000);
+            }
+        }
+
+        // Function to animate gate opening
+        function animateGate() {
+            const openGateTween = new TWEEN.Tween(gate.position)
+                .to({ y: -1 }, 3000) // Decend the gate 3000 milliseconds
+                .easing(TWEEN.Easing.Quadratic.Out) // Easing function for smoother animation
+                .start();
+        }
+
+        // Function to make the birds fly to a specified location
+        function animateBirdsToFlockLocation() {
+            birdsGroup.children.forEach((bird) => {
+                const birdFlyTween = new TWEEN.Tween(bird.position)
+                    .to({ x: -6, y: 1, z: -10 }, 3000) // Target position
+                    .easing(TWEEN.Easing.Cubic.InOut) // Easing function for smooth animation
+                    .start()
+                    .onComplete(spawnAndGrowSphere);
+            });
+        }
+
+        function spawnAndGrowSphere() {
+            const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphere.position.set(-6, 1, -10); // Same as the final birds position
+            scene.add(sphere);
+
+            const growSphereTween = new TWEEN.Tween(sphere.scale)
+                .to({ x: 50, y: 50, z: 50 }, 5000) // Grow the sphere over 5 seconds
+                .easing(TWEEN.Easing.Exponential.In) // Start slow then accelerate
+                .onComplete(() => showGameOverText())
+                .start();
+        }
+
+
+        function showGameOverText() {
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+
+
+        // Add click event listener
+        document.addEventListener('click', onClick);
+
+
+
+
+        // MOVEMENT
+        const boundaryRectangles = [
+            { minX: -14, maxX: -6, minZ: 5, maxZ: 27 },
+            { minX: -6, maxX: 5, minZ: 8, maxZ: 27 },
+            { minX: 5, maxX: 15, minZ: 4, maxZ: 27 },
+            { minX: 0, maxX: 10, minZ: 12, maxZ: 18 }
+        ];
+
+        // Function to check if a position is within any of the boundary rectangles
+        function isWithinBoundaries(x, z) {
+            return boundaryRectangles.some(rect => x >= rect.minX && x <= rect.maxX && z >= rect.minZ && z <= rect.maxZ);
+        }
+
+        // Movement speed
+        const speed = 5;
+
+        // Keys pressed state
+        const keysPressed = {};
+
+        // Initial camera orientation
+        let cameraPitch = 0;
+        let cameraYaw = 0;
+        const rotationSpeed = 0.05;
+
+        document.addEventListener('keydown', (event) => {
+            keysPressed[event.key] = true;
+
+            // Arrow keys for rotation
+            if (event.key === 'ArrowUp') cameraPitch += rotationSpeed;
+            if (event.key === 'ArrowDown') cameraPitch -= rotationSpeed;
+            if (event.key === 'ArrowLeft') cameraYaw += rotationSpeed;
+            if (event.key === 'ArrowRight') cameraYaw -= rotationSpeed;
+
+            // Clamp pitch values to prevent flipping
+            cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch));
+        });
+
+        document.addEventListener('keyup', (event) => {
+            keysPressed[event.key] = false;
+        });
+
+
+        function updateCameraPosition(delta) {
+            const newPosition = camera.position.clone();
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+
+            if (keysPressed['w']) newPosition.addScaledVector(forward, speed * delta);
+            if (keysPressed['s']) newPosition.addScaledVector(forward, -speed * delta);
+            if (keysPressed['a']) newPosition.addScaledVector(right, -speed * delta);
+            if (keysPressed['d']) newPosition.addScaledVector(right, speed * delta);
+
+
+            camera.rotation.set(cameraPitch, cameraYaw, 0, 'YXZ');
+
+            // y position is always -2
+            newPosition.y = -2;
+
+            // Check if the new position is within any of the defined boundaries
+            if (isWithinBoundaries(newPosition.x, newPosition.z)) {
+                camera.position.copy(newPosition);
+            }
+        }
+
+
+
+
+        // OrbitControls (optional for navigation)
+        // const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        // controls.enableDamping = true;
+        // controls.dampingFactor = 0.05;
+
+
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            TWEEN.update();
+
+            // Get the time since the last frame
+            const delta = clock.getDelta();
+
+            // Update the camera's position
+            updateCameraPosition(delta);
+
+
+            // Animate the birds flying
+            animateBirds(birdsGroup.children);
+
+            renderer.render(scene, camera);
+        }
+        const clock = new THREE.Clock();
+
+        animate();
+
+    </script>
+
+    <script type="text/javascript" src="main.js"></script>
+</body>
+
+</html>
